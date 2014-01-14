@@ -11,14 +11,11 @@ int	main (void)
 {	
 
 	std::cout << fixed_unsigned_int<5>(std::numeric_limits<unsigned long long>::max()-1000) << std::endl;
-	fixed_unsigned_int<5> i;
 
 	while(true){
-		//std::cin >> i;
-		//std::cout << i << std::endl;
-		//std::cout << (i < fixed_unsigned_int<5>(std::numeric_limits<unsigned long long>::max())) << std::endl;
 		fixed_unsigned_int<3> a, b;
 		cin >> a >> b;
+
 		cout << "inputs a: " << a << " b: " << b << endl;
 		cout << "======================================" << endl;
 		cout << "a + b: " << (a+b) << endl;

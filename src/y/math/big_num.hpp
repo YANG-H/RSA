@@ -20,13 +20,54 @@ namespace y
 
 		namespace __private__
 		{
-			template <class _ritera, class _riterb>
-			int compare_range(_ritera arbegin, _ritera arend, _riterb brbegin)
+
+			template <class _iter>
+			struct is_unsigned_int_iterator 
+				: std::is_same<typename std::iterator_traits<_iter>::value_type, unsigned>
+			{};
+
+			template <class _itera>
+			_itera find_least_significant_nonzero(_itera abegin, _itera aend)
 			{
-				for (auto i = arbegin, auto j = brbegin; i != arend; ++i, ++j) {
+				static_assert(is_unsigned_int_iterator<_itera>::value, "invalid iterator type");
+				while(abegin != aend){
+					if(*abegin != 0)
+						return abegin;
+					abegin ++;
+				}
+				return aend;
+			}
+
+			template <class _itera>
+			_itera find_most_significant_nonzero(_itera abegin, _itera aend)
+			{
+				static_assert(is_unsigned_int_iterator<_itera>::value, "invalid iterator type");
+				std::reverse_iterator<_itera> arbegin(aend), arend(abegin);
+				while(arbegin != arend){
+					if(*arbegin != 0)
+						return --arbegin.base();
+					arbegin ++;
+				}
+				return aend;
+			}
+
+			template <class _itera, class _iterb>
+			int compare_range(_itera abegin, _itera aend, _iterb bbegin, _iterb bend)
+			{
+				static_assert(is_unsigned_int_iterator<_itera>::value, "invalid iterator type");
+				static_assert(is_unsigned_int_iterator<_iterb>::value, "invalid iterator type");
+				std::reverse_iterator<_itera> arbegin(aend), arend(abegin);
+				std::reverse_iterator<_iterb> brbegin(bend), brend(bbegin);
+				auto i = arbegin;
+				auto j = brbegin;
+				for (; i != arend && j != brend; ++i, ++j) {
 					if (*i != *j)
 						return (*i < *j) ? -1 : 1;
 				}
+				if(i != arend && j == brend)
+					return 1;
+				if(i == arend && j != brend)
+					return -1;
 				return 0;
 			}
 
@@ -34,6 +75,7 @@ namespace y
 			template <class _itera>
 			void twos_complement_range(_itera begin, _itera end)
 			{
+				static_assert(is_unsigned_int_iterator<_itera>::value, "invalid iterator type");
 				for(auto i = begin; i != end; ++i)
 					*i = ~(*i);
 			}
@@ -42,15 +84,17 @@ namespace y
 			template <class _itera>
 			void negate_range(_itera begin, _itera end)
 			{
+				static_assert(is_unsigned_int_iterator<_itera>::value, "invalid iterator type");
 				twos_complement_range(begin, end);
 				plus_one_range(begin, end);
 			}
 
 
-			// a++
+			// ++a
 			template <class _itera>
 			void plus_one_range(_itera begin, _itera end)
 			{
+				static_assert(is_unsigned_int_iterator<_itera>::value, "invalid iterator type");
 				bool carry = true;
 				for(auto i = begin; i != end; ++i){
 					unsigned long long sumhere = (LONG_MASK & *i) + (carry ? 1 : 0);
@@ -61,48 +105,113 @@ namespace y
 				}
 			}
 
+			// --a
+			template <class _itera>
+			void subtract_one_range(_itera begin, _itera end)
+			{
+				static_assert(is_unsigned_int_iterator<_itera>::value, "invalid iterator type");
+				bool borrow = true;
+				for(auto i = begin; i != end; ++i){
+					long long subhere = (LONG_MASK & *i) - (borrow ? 1 : 0);
+					*i = unsigned(subhere);
+					borrow = subhere < 0;
+					if(!borrow)
+						break;
+				}
+			}
+
 			// a += b
 			template <class _itera, class _iterb>
-			void plus_range(_itera abegin, _itera aend, _iterb bbegin)
+			void plus_range(_itera abegin, _itera aend, _iterb bbegin, _iterb bend)
 			{
+				static_assert(is_unsigned_int_iterator<_itera>::value, "invalid iterator type");
+				static_assert(is_unsigned_int_iterator<_iterb>::value, "invalid iterator type");
 				bool carry = false;
 				_itera ai;
 				_iterb bi;
-				for(ai = abegin, bi = bbegin; ai != aend; ++ai, ++bi){
+				for(ai = abegin, bi = bbegin; ai != aend && bi != bend; ++ai, ++bi){
 					unsigned long long sumhere = 
 						(LONG_MASK & *ai) + (LONG_MASK & *bi) + (carry ? 1 : 0);
 					*ai = unsigned(sumhere);
 					carry = (sumhere >> 32) != 0;
 				}
+				if(ai != aend && carry)
+					*ai += 1;
+				assert(!(ai == aend && bi != bend)); // b should be shorter
 			}
 
 			// a -= b
 			template <class _itera, class _iterb>
-			void subtract_range(_itera abegin, _itera aend, _iterb bbegin)
+			void subtract_range(_itera abegin, _itera aend, _iterb bbegin, _iterb bend)
 			{
-				std::vector<std::iterator_traits<_itera>::value_type> temp(bbegin, bbegin + (aend - abegin));
+				static_assert(is_unsigned_int_iterator<_itera>::value, "invalid iterator type");
+				static_assert(is_unsigned_int_iterator<_iterb>::value, "invalid iterator type");
+				std::vector<std::iterator_traits<_itera>::value_type> temp(bbegin, bend);
 				negate_range(temp.begin(), temp.end());
-				plus_range(abegin, aend, temp.begin());
+				plus_range(abegin, aend, temp.begin(), temp.end());
 			}
 
 
-			// ab = a * b mod
+			// ab = a * b
 			template <class _itera, class _iterb, class _iterab>
-			void product_range(_itera abegin, _itera aend, _iterb bbegin, _iterab abbegin)
+			void mult_range(_itera abegin, _itera aend, _iterb bbegin, _iterb bend, _iterab abbegin, _iterab abend)
 			{
-				auto bend = bbegin + (aend - abegin);
-				auto abend = abbegin + (aend - abegin);
-				for(auto bi = bbegin; bi != bend; ++bi){
+				static_assert(is_unsigned_int_iterator<_itera>::value, "invalid iterator type");
+				static_assert(is_unsigned_int_iterator<_iterb>::value, "invalid iterator type");
+				static_assert(is_unsigned_int_iterator<_iterab>::value, "invalid iterator type");
+				//auto bend = bbegin + (aend - abegin);
+				_iterab abihere = abbegin;
+				for(auto bi = bbegin; bi != bend; ++bi, ++abihere){
 					unsigned long long carry = 0;
-					_iterab abi = abbegin + (bi - bbegin);
-					for(_itera ai = abegin; 
-						abi != abend; ++ ai, ++abi){
+					_itera ai = abegin;
+					_iterab abi = abihere;
+					for(; abi != abend && ai != aend; ++ai, ++abi){
 						unsigned long long product = (*ai & LONG_MASK) * (*bi & LONG_MASK) + 
 							(*abi & LONG_MASK) + carry;
 						*abi = (unsigned)product;
 						carry = product >> 32;
 					}
+					if(abi != abend)
+						*abi = carry;
 				}
+			}
+
+			template <class _itera>
+			void left_shift_range(_itera abegin, _itera aend, unsigned n)
+			{
+				static_assert(is_unsigned_int_iterator<_itera>::value, "invalid iterator type");
+				assert(n <= 32);
+				unsigned carry = 0;
+				for(auto i = abegin; i != aend; ++i) {
+					unsigned long long s = ((*i & LONG_MASK) << n) + carry;
+					*i = unsigned(s);
+					carry = (s >> 32);
+				}
+			}
+
+			template <class _itera>
+			void right_shift_range(_itera abegin, _itera aend, unsigned n)
+			{
+				static_assert(is_unsigned_int_iterator<_itera>::value, "invalid iterator type");
+				assert(n <= 32);
+				std::reverse_iterator<_itera> arbegin(aend), arend(abegin);
+				unsigned carry = 0;
+				for(auto i = arbegin; i != arend; ++i) {
+					unsigned long long s = ((*i & LONG_MASK) + ((carry & LONG_MASK) << 32));
+					*i = unsigned(s >> n);
+					carry = unsigned(s - ((*i & LONG_MASK) << n));
+				}
+			}
+
+			template <class _iterDividend, class _iterDivisor, class _iterQuotient>
+			void divide_range(_iterDividend ddbegin, _iterDividend ddend,
+				_iterDivisor dsbegin, _iterDivisor dsend, 
+				_iterQuotient qbegin, _iterQuotient qend)
+			{
+				static_assert(is_unsigned_int_iterator<_iterDividend>::value, "invalid iterator type");
+				static_assert(is_unsigned_int_iterator<_iterDivisor>::value, "invalid iterator type");
+				static_assert(is_unsigned_int_iterator<_iterQuotient>::value, "invalid iterator type");
+
 			}
 
 		}
@@ -195,33 +304,21 @@ namespace y
 		template <int num>
 		int fixed_unsigned_int<num>::compare_to( const fixed_unsigned_int & v ) const
 		{
-			//for (int i = unit_num-1; i >= 0; i--) {
-			//	if (mag_[i] != v.mag_[i])
-			//		return (mag_[i] < v.mag_[i]) ? -1 : 1;
-			//}
-			//return 0;
-			return __private__::compare_range(mag_.rbegin(), mag_.rend(), v.mag_.rbegin());
+			return __private__::compare_range(mag_.begin(), mag_.end(), v.mag_.begin(), v.mag_.end());
 		}
 
 
 		template <int num>
 		bool fixed_unsigned_int<num>::is_zero() const
 		{
-			for (int i = unit_num-1; i >= 0; i--) {
-				if (mag_[i] != 0)
-					return false;
-			}
-			return true;
+			return std::none_of(mag_.begin(), mag_.end(), [](unsigned i)->bool{return i != 0;});
 		}
 
 		template <int num>
 		int fixed_unsigned_int<num>::most_significant_nonzero_unit() const
 		{
-			for (int i = unit_num-1; i >= 0; i--) {
-				if (mag_[i] != 0)
-					return i;
-			}
-			return -1;
+			auto i = __private__::find_most_significant_nonzero(mag_.begin(), mag_.end());
+			return i == mag_.end() ? -1 : (i - mag_.begin());
 		}
 
 		template <int num>
@@ -244,11 +341,10 @@ namespace y
 		template <int num>
 		void fixed_unsigned_int<num>::left_shift( unsigned n )
 		{
-			unsigned carry = 0;
-			for(int i = 0; i < num; i++) {
-				unsigned long long s = ((mag_[i] & LONG_MASK) << n) + carry;
-				mag_[i] = unsigned(s);
-				carry = (s >> 32);
+			while(n != 0){
+				unsigned nn = std::min(32u, n);
+				__private__::left_shift_range(mag_.begin(), mag_.end(), nn);
+				n -= nn;
 			}
 		}
 
@@ -256,92 +352,44 @@ namespace y
 		template <int num>
 		void fixed_unsigned_int<num>::right_shift( unsigned n )
 		{
-			unsigned carry = 0;
-			for(int i = num-1; i >= 0; i--) {
-				unsigned long long s = ((mag_[i] & LONG_MASK) + ((carry & LONG_MASK) << 32));
-				mag_[i] = unsigned(s >> n);
-				carry = unsigned(s - ((mag_[i] & LONG_MASK) << n));
+			while(n != 0){
+				unsigned nn = std::min(32u, n);
+				__private__::right_shift_range(mag_.begin(), mag_.end(), nn);
+				n -= nn;
 			}
 		}
-
-		/*
-		template <int num>
-		inline fixed_unsigned_int<num> operator << (const fixed_unsigned_int<num>& v, unsigned n)
-		{
-			fixed_unsigned_int<num> s(v); 
-			s.shift_left(n); 
-			return s;
-		}
-
-		template <int num>
-		inline fixed_unsigned_int<num> operator >> (const fixed_unsigned_int<num>& v, unsigned n) 
-		{
-			fixed_unsigned_int<num> s(v); 
-			s.shift_right(n); 
-			return s;
-		}
-		*/
 
 
 		template <int num>
 		void fixed_unsigned_int<num>::twos_complement()
 		{
-			/*
-			for(int i = 0; i < unit_num; i++)
-				mag_[i] = ~mag_[i];
-				*/
 			__private__::twos_complement_range(mag_.begin(), mag_.end());
 		}
 
 		template <int num>
 		void fixed_unsigned_int<num>::negate()
 		{
-			//twos_complement();
-			//plus_one();
-			__private__::negate_range(mag_.begin(), mag_.end());
+			twos_complement();
+			plus_one();
 		}
 
 		template <int num>
 		void fixed_unsigned_int<num>::plus_one()
 		{
-			/*
-			bool carry = true;
-			for(int i = 0; i < unit_num; i++){
-				unsigned long long sumhere = (LONG_MASK & mag_[i]) + (carry ? 1 : 0);
-				mag_[i] = unsigned(sumhere);
-				carry = (sumhere >> 32) != 0;
-				if(!carry)
-					break;
-			}*/
 			__private__::plus_one_range(mag_.begin(), mag_.end());
 		}
 
 		template <int num>
 		void fixed_unsigned_int<num>::subtract_one()
 		{
-			bool borrow = true;
-			for(int i = 0; i < unit_num; i++){
-				long long subhere = (LONG_MASK & mag_[i]) - (borrow ? 1 : 0);
-				mag_[i] = unsigned(subhere);
-				borrow = subhere < 0;
-				if(!borrow)
-					break;
-			}
+			__private__::subtract_one_range(mag_.begin(), mag_.end());
 		}
 
 
 		template <int num>
 		fixed_unsigned_int<num> & fixed_unsigned_int<num>::operator+=( const fixed_unsigned_int & v )
 		{
-			/*
-			bool carry = false;
-			for(int i = 0; i < unit_num; i++){
-				unsigned long long sumhere = (LONG_MASK & mag_[i]) + (LONG_MASK & v.mag_[i]) + (carry ? 1 : 0);
-				mag_[i] = unsigned(sumhere);
-				carry = (sumhere >> 32) != 0;
-			}
-			return *this;*/
-			__private__::plus_range(mag_.begin(), mag_.end(), v.mag_.begin());
+			__private__::plus_range(mag_.begin(), mag_.end(), v.mag_.begin(), v.mag_.end());
 			return *this;
 		}
 
@@ -399,39 +447,21 @@ namespace y
 		template <int num1, int num2>
 		fixed_unsigned_int<num1 + num2> mult_unlimit(const fixed_unsigned_int<num1>& xx, const fixed_unsigned_int<num2>& yy)
 		{
-			fixed_unsigned_int<num1 + num2> p;
-			for(int j = 0; j < num2; j++){
-				unsigned long long carry = 0;
-				for(int i = 0; i < num1; i++){
-					int k = i + j;
-					unsigned long long product = (xx[i] & LONG_MASK) * (yy[j] & LONG_MASK) + (p[k] & LONG_MASK) + carry;
-					p[k] = (unsigned)product;
-					carry = product >> 32;
-				}
-				p[j + num1] = carry;
-			}
-			return p;
+			std::array<unsigned, num1 + num2> p;
+			std::fill(p.begin(), p.end(), 0);
+			__private__::mult_range(xx.magnitude().begin(), xx.magnitude().end(), 
+				yy.magnitude().begin(), yy.magnitude().end(), p.begin(), p.end());
+			return fixed_unsigned_int<num1 + num2>(p);
 		}
 
 		// wrapped
 		template <int num>
 		fixed_unsigned_int<num> operator * (const fixed_unsigned_int<num>& xx, const fixed_unsigned_int<num>& yy)
 		{
-			/*
-			fixed_unsigned_int<num> p;
-			for(int j = 0; j < num; j++){
-				unsigned long long carry = 0;
-				for(int i = 0; i + j < num; i++){
-					int k = i + j;
-					unsigned long long product = (xx[i] & LONG_MASK) * (yy[j] & LONG_MASK) + (p[k] & LONG_MASK) + carry;
-					p[k] = (unsigned)product;
-					carry = product >> 32;
-				}
-			}
-			return p;*/
 			std::array<unsigned, num> p;
 			std::fill(p.begin(), p.end(), 0);
-			__private__::product_range(xx.magnitude().begin(), xx.magnitude().end(), yy.magnitude().begin(), p.begin());
+			__private__::mult_range(xx.magnitude().begin(), xx.magnitude().end(), 
+				yy.magnitude().begin(), yy.magnitude().end(), p.begin(), p.end());
 			return fixed_unsigned_int<num>(p);
 		}
 
