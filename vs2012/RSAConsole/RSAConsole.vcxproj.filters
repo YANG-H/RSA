@@ -24,15 +24,12 @@
     <ClCompile Include="main.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\src\rsa.cpp">
-      <Filter>头文件</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\src\rsa.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\src\y\math\big_num.hpp">
+      <Filter>头文件\y\math</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\y\math\rsa.hpp">
       <Filter>头文件\y\math</Filter>
     </ClInclude>
   </ItemGroup>
