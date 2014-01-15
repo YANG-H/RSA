@@ -1,7 +1,7 @@
 // copyright yanghao 2013
 
-#ifndef _BIG_NUM_H_
-#define _BIG_NUM_H_
+#ifndef _BIG_NUM_HPP_
+#define _BIG_NUM_HPP_
 
 #include <array>
 #include <vector>
@@ -9,7 +9,6 @@
 #include <iomanip>
 #include <cassert>
 #include <cstdint>
-#include <bitset>
 
 namespace y
 {
@@ -341,7 +340,7 @@ namespace y
 		template <int num>
 		class fixed_unsigned_int
 		{
-			static_assert(num > 0, "num should be over 2");
+			static_assert(num > 1, "num should be over 2");
 
 		public:
 			typedef uint32_t unit_t;
@@ -410,6 +409,7 @@ namespace y
 			void from_string(const std::string& s, int radix = 10);
 
 			template <class randgen_t> void randomize(randgen_t & rnd);
+			template <class randgen_t> void set_to_probable_prime(randgen_t & rnd, int certainty = DEFAULT_PRIME_CERTAINTY);
 
 		public:
 			// comparison
@@ -527,6 +527,27 @@ namespace y
 				mag_[i] = dist(rnd);
 			}
 		}
+
+		static const unsigned long long SMALL_PRIME_PRODUCT(3ull*5*7*11*13*17*19*23*29*31*37*41);
+
+		template <int num> template <class randgen_t>
+		void fixed_unsigned_int<num>::set_to_probable_prime( randgen_t & rnd, int certainty /*= DEFAULT_PRIME_CERTAINTY*/ )
+		{
+			while(true){
+				// candidate
+				randomize<randgen_t>(rnd);
+				mag_[0] |= 1; // make it odd
+				unsigned long long r = mod(SMALL_PRIME_PRODUCT).to_uint64();
+				if ((r%3==0)  || (r%5==0)  || (r%7==0)  || (r%11==0) ||
+					(r%13==0) || (r%17==0) || (r%19==0) || (r%23==0) ||
+					(r%29==0) || (r%31==0) || (r%37==0) || (r%41==0))
+					continue; // Candidate is composite; try another
+				if(is_prime_with_certainty<randgen_t>(rnd, certainty))
+					break;
+			}
+		}
+
+
 
 		template <int num>
 		bool fixed_unsigned_int<num>::is_zero() const
@@ -948,26 +969,6 @@ namespace y
 		{
 			fixed_unsigned_int<num> xxx(xx);
 			return xxx.divide_and_remain(yy);
-		}
-
-		// primes
-		static const unsigned long long SMALL_PRIME_PRODUCT = 3ULL*5*7*11*13*17*19*23*29*31*37*41;
-		template <int num, class randgen_t>
-		fixed_unsigned_int<num> gen_prime_with_certainty(randgen_t& rnd, int certainty = DEFAULT_PRIME_CERTAINTY)
-		{
-			fixed_unsigned_int<num> p;
-			while(true){
-				// candidate
-				p.randomize(rnd);
-				p[0] |= 1; // make it odd
-				unsigned long long r = p.mod(SMALL_PRIME_PRODUCT).to_uint64();
-				if ((r%3==0)  || (r%5==0)  || (r%7==0)  || (r%11==0) ||
-					(r%13==0) || (r%17==0) || (r%19==0) || (r%23==0) ||
-					(r%29==0) || (r%31==0) || (r%37==0) || (r%41==0))
-					continue; // Candidate is composite; try another
-				if(p.is_prime_with_certainty(rnd, certainty))
-					return p;
-			}
 		}
 
 
