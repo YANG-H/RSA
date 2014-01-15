@@ -1,7 +1,10 @@
+// copyright yanghao 2013
+
 #ifndef _BIG_NUM_H_
 #define _BIG_NUM_H_
 
 #include <array>
+#include <vector>
 #include <iostream>
 #include <iomanip>
 #include <cassert>
@@ -56,18 +59,27 @@ namespace y
 			{
 				static_assert(is_unsigned_int_iterator<_itera>::value, "invalid iterator type");
 				static_assert(is_unsigned_int_iterator<_iterb>::value, "invalid iterator type");
-				std::reverse_iterator<_itera> arbegin(aend), arend(abegin);
-				std::reverse_iterator<_iterb> brbegin(bend), brend(bbegin);
-				auto i = arbegin;
-				auto j = brbegin;
-				for (; i != arend && j != brend; ++i, ++j) {
+				int result = 0;
+				auto i = abegin;
+				auto j = bbegin;
+				for (; i != aend && j != bend; ++i, ++j) {
 					if (*i != *j)
-						return (*i < *j) ? -1 : 1;
+						result = (*i < *j) ? -1 : 1;
 				}
-				if(i != arend && j == brend)
-					return 1;
-				if(i == arend && j != brend)
-					return -1;
+				if(result != 0)
+					return result;
+				if(i != aend && j == bend){
+					for(; i != aend; ++i){
+						if(*i != 0)
+							return 1;
+					}
+				}
+				if(i == aend && j != bend){
+					for(; j != bend; ++j){
+						if(*j != 0)
+							return -1;
+					}
+				}
 				return 0;
 			}
 
@@ -141,6 +153,7 @@ namespace y
 			}
 
 			// a -= b
+			/*
 			template <class _itera, class _iterb>
 			void subtract_range(_itera abegin, _itera aend, _iterb bbegin, _iterb bend)
 			{
@@ -149,6 +162,38 @@ namespace y
 				std::vector<std::iterator_traits<_itera>::value_type> temp(bbegin, bend);
 				negate_range(temp.begin(), temp.end());
 				plus_range(abegin, aend, temp.begin(), temp.end());
+				if(aend - abegin > bend - bbegin)
+					subtract_one_range(abegin + (bend - bbegin), aend);
+				// BUGGY
+			}*/
+			
+			template <class _itera, class _iterb>
+			void subtract_range(_itera abegin, _itera aend, _iterb bbegin, _iterb bend)
+			{
+				static_assert(is_unsigned_int_iterator<_itera>::value, "invalid iterator type");
+				static_assert(is_unsigned_int_iterator<_iterb>::value, "invalid iterator type");
+				bool borrow = false;
+				_itera ai;
+				_iterb bi;
+				for(ai = abegin, bi = bbegin; ai != aend && bi != bend; ++ai, ++bi){
+					unsigned long long along = LONG_MASK & *ai;
+					unsigned long long blong = LONG_MASK & *bi;
+					if(along >= blong + (borrow ? 1 : 0)){
+						*ai = unsigned(along - blong - (borrow ? 1 : 0));
+						borrow = false;						
+					}else{
+						*ai = unsigned(along + (1UL << 32U) - blong - (borrow ? 1 : 0));
+						borrow = true;						
+					}
+				}
+				//assert(!(ai == aend && bi != bend)); // b should be shorter
+				if(borrow){ // still borrow
+					while(ai != aend && *ai == 0){
+						*ai = *ai - 1; // 0 -> 0xffffffff
+					}
+					if(ai != aend)
+						*ai = *ai - 1;
+				}
 			}
 
 
@@ -172,7 +217,7 @@ namespace y
 						carry = product >> 32;
 					}
 					if(abi != abend)
-						*abi = carry;
+						*abi = unsigned(carry);
 				}
 			}
 
@@ -203,6 +248,8 @@ namespace y
 				}
 			}
 
+
+			// quotient = dividend / divisor, didivend -= quotient * divisor (remainder)
 			template <class _iterDividend, class _iterDivisor, class _iterQuotient>
 			void divide_range(_iterDividend ddbegin, _iterDividend ddend,
 				_iterDivisor dsbegin, _iterDivisor dsend, 
@@ -212,6 +259,62 @@ namespace y
 				static_assert(is_unsigned_int_iterator<_iterDivisor>::value, "invalid iterator type");
 				static_assert(is_unsigned_int_iterator<_iterQuotient>::value, "invalid iterator type");
 
+				int cmp = compare_range(ddbegin, ddend, dsbegin, dsend);
+				if(cmp < 0) { // dd < ds
+					std::fill(qbegin, qend, 0u);
+					return;
+				}
+
+				_iterDivisor dsbig = find_most_significant_nonzero(dsbegin, dsend);
+				_iterDividend ddbig = find_most_significant_nonzero(ddbegin, ddend);
+				if(dsbig == dsend) { // ds = 0
+					throw std::runtime_error("divided by zero");
+				}
+				if(ddbig == ddend) { // dd = 0
+					std::fill(qbegin, qend, 0u);
+					return;
+				}
+				unsigned long long dshead = *dsbig & LONG_MASK;
+				
+				// 0 ... [0? ddtoclear ... ddcurrenton] ddcurrenton-1 ddcurrenton-2 ... ddbegin
+				_iterDividend ddcurrenton = ddbig - (dsbig - dsbegin);
+				typedef std::reverse_iterator<_iterDividend> _riterDividend;
+				_riterDividend ddcurrenton_rev(ddcurrenton+1);
+				_iterDividend ddtoclear = ddbig; // will be cleared
+				_riterDividend ddtoclear_rev(ddtoclear+1);
+				_riterDividend ddrevend(ddbegin);
+
+				std::vector<unsigned> dsmultgess(dsend - dsbegin + 1, 0u); // cache for multiplication
+				while (ddcurrenton_rev != ddrevend) {
+					ddcurrenton = ddcurrenton_rev.base()-1;
+					ddtoclear = ddtoclear_rev.base()-1;
+
+					int cmp = compare_range(ddcurrenton, ddend, dsbegin, dsend);
+					if(cmp >= 0){
+						assert(ddtoclear - ddcurrenton == dsbig - dsbegin);
+						unsigned long long ddtoclearhead = *ddtoclear & LONG_MASK;
+						if(ddtoclear + 1 != ddend){
+							ddtoclearhead += (*(ddtoclear+1) << 32);
+						}
+						assert(ddtoclearhead >= dshead);
+						unsigned long long qgess = (dshead + 1ul == 0) ? 1ul : ddtoclearhead / (dshead + 1ul);
+						qgess = std::max<unsigned long long>(1ul, qgess);
+						assert(qgess >= 1ul && unsigned(qgess >> 32) == 0);
+						if(qgess > 1) {
+							unsigned qgess_[] = {unsigned(qgess)};
+							std::fill(dsmultgess.begin(), dsmultgess.end(), 0u);
+							mult_range(dsbegin, dsend, qgess_, qgess_+1, dsmultgess.begin(), dsmultgess.end());
+							subtract_range(ddcurrenton, ddend, dsmultgess.begin(), dsmultgess.end());
+							*(qbegin + (ddcurrenton - ddbegin)) += qgess;
+						}else{
+							subtract_range(ddcurrenton, ddend, dsbegin, dsbig+1);
+							*(qbegin + (ddcurrenton - ddbegin)) += 1;
+						}
+					}else{
+						ddcurrenton_rev ++;
+						ddtoclear_rev ++;
+					}
+				}
 			}
 
 		}
@@ -292,10 +395,15 @@ namespace y
 			fixed_unsigned_int & operator ++ () {plus_one(); return *this;}
 			fixed_unsigned_int operator -- (int) {fixed_unsigned_int o(*this); subtract_one(); return o;}
 			fixed_unsigned_int & operator -- () {subtract_one(); return *this;}
-			
+
 			fixed_unsigned_int & operator += (const fixed_unsigned_int & v);
 			fixed_unsigned_int & operator -= (const fixed_unsigned_int & v);
 			fixed_unsigned_int & operator *= (const fixed_unsigned_int & v);
+			fixed_unsigned_int & operator /= (const fixed_unsigned_int & v);
+
+			// this = remainder, returns the quotient
+			fixed_unsigned_int divide(const fixed_unsigned_int & ds);
+			fixed_unsigned_int mod(const fixed_unsigned_int & ds) const;
 
 		private:
 			std::array<unsigned, unit_num> mag_;
@@ -396,9 +504,8 @@ namespace y
 		template <int num>
 		fixed_unsigned_int<num> & fixed_unsigned_int<num>::operator-=( const fixed_unsigned_int & v )
 		{
-			fixed_unsigned_int s(v);
-			s.negate();
-			return *this += s;
+			__private__::subtract_range(mag_.begin(), mag_.end(), v.mag_.begin(), v.mag_.end());
+			return *this;
 		}
 
 		template <int num>
@@ -409,6 +516,28 @@ namespace y
 		}
 
 
+		template <int num>
+		fixed_unsigned_int<num> & fixed_unsigned_int<num>::operator/=( const fixed_unsigned_int & v )
+		{
+			*this = (*this / v);
+			return *this;
+		}
+
+		template <int num>
+		fixed_unsigned_int<num> fixed_unsigned_int<num>::divide( const fixed_unsigned_int & ds )
+		{
+			fixed_unsigned_int<num> q;
+			__private__::divide_range(mag_.begin(), mag_.end(), ds.mag_.begin(), ds.mag_.end(), q.mag_.begin(), q.mag_.end());
+			return q;
+		}
+
+		template <int num>
+		fixed_unsigned_int<num> fixed_unsigned_int<num>::mod( const fixed_unsigned_int & ds ) const
+		{
+			fixed_unsigned_int<num> n(*this), q;
+			__private__::divide_range(n.mag_.begin(), n.mag_.end(), ds.mag_.begin(), ds.mag_.end(), q.mag_.begin(), q.mag_.end());
+			return n;
+		}
 
 
 		template <int num>
@@ -465,82 +594,13 @@ namespace y
 			return fixed_unsigned_int<num>(p);
 		}
 
-
-
-		// the long division
 		template <int num>
-		fixed_unsigned_int<num> divide( const fixed_unsigned_int<num> & n, 
-			const fixed_unsigned_int<num> & d, 
-			fixed_unsigned_int<num> & r )
+		fixed_unsigned_int<num> operator / (const fixed_unsigned_int<num>& xx, const fixed_unsigned_int<num>& yy)
 		{
-			int msn = d.most_significant_nonzero_unit();
-			if(msn == -1){
-				throw std::runtime_error("divided by zero");
-			}
-
-			//if(msn == 0){
-			//	throw std::runtime_error("not implemented");
-			//}
-
-			fixed_unsigned_int quotient, divisor(d);
-			//rem = n;
-
-			
-			fixed_unsigned_int<num+1> rem(n);
-
-			int dmsu = divisor[msn]; // most significant unit of the divisor
-			assert(dmsu);							
-			int shift = 0;
-			for(; dmsu!=0; shift++)
-				dmsu >= 1;
-			shift = 32 - shift;
-			
-			// move most significant bit to the left end
-			divisor.left_shift(shift);
-			rem.left_shift(shift);
-			
-			
-			// [msn ... 0]
-			for(int i = num - msn; i >= 0; --i) {
-				int rem_from = i + msn;
-				int rem_to = i;
-				// rem[rem_from ... rem_to] / divisor[msn ... 0]
-				bool remhereislarger = true;
-				while(remhereislarger){
-					remhereislarger = true;
-					for(int k = 0; k <= msn; k++){
-						unsigned remunit = rem[rem_from - k];
-						unsigned divuint = divisor[msn - k];
-						if(remunit != divuint){
-							remhereislarger = remunit > divuint;
-							break;
-						}
-					}
-					
-					if(remhereislarger){ // rem[rem_from ... rem_to] -= divisor[msn ... 0]
-						// += ~ divisor[msn ... 0]
-						bool carry = false;
-						for(int remid = rem_to, divid = 0; remid <= rem_from; remid++, divid++){
-							unsigned long long sumhere = 
-								(LONG_MASK & rem[remid]) + (LONG_MASK & ~divisor[divid]) + (carry ? 1 : 0);
-							rem[remid] = unsigned(sumhere);
-							carry = (sumhere >> 32) != 0;
-						}
-						// += 1
-						carry = true;
-						for(int remid = rem_to; remid <= rem_from; remid++){
-							unsigned long long sumhere = (LONG_MASK & rem[remid]) + (carry ? 1 : 0);
-							rem[remid] = unsigned(sumhere);
-							carry = (sumhere >> 32) != 0;
-							if(!carry)
-								break;
-						}
-						quotient[i] ++;
-					}
-				}
-			}
-
+			fixed_unsigned_int<num> xxx(xx);
+			return xxx.divide(yy);
 		}
+
 
 
 
