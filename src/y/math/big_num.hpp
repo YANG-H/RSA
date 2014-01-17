@@ -243,7 +243,7 @@ namespace y
 				static_assert(is_unsigned_int_iterator<_itera>::value, "invalid iterator type");
 				unsigned unitid = n / 32;
 				unsigned offset = n % 32;
-				return *(abegin + unitid) & (1ull << offset);
+				return (*(abegin + unitid) & (1ull << offset)) != 0;
 			}
 
 			// number of bits
@@ -409,7 +409,9 @@ namespace y
 			void from_string(const std::string& s, int radix = 10);
 
 			template <class randgen_t> void randomize(randgen_t & rnd);
-			template <class randgen_t> void set_to_probable_prime(randgen_t & rnd, int certainty = DEFAULT_PRIME_CERTAINTY);
+			template <class randgen_t> void set_to_probable_prime(randgen_t & rnd, 
+				int maxbitoffset = 0,
+				int certainty = DEFAULT_PRIME_CERTAINTY);
 
 		public:
 			// comparison
@@ -531,12 +533,17 @@ namespace y
 		static const unsigned long long SMALL_PRIME_PRODUCT(3ull*5*7*11*13*17*19*23*29*31*37*41);
 
 		template <int num> template <class randgen_t>
-		void fixed_unsigned_int<num>::set_to_probable_prime( randgen_t & rnd, int certainty /*= DEFAULT_PRIME_CERTAINTY*/ )
+		void fixed_unsigned_int<num>::set_to_probable_prime( randgen_t & rnd, 
+			int maxbitoffset,
+			int certainty /*= DEFAULT_PRIME_CERTAINTY*/ )
 		{
 			while(true){
 				// candidate
 				randomize<randgen_t>(rnd);
+				mag_.back() |= (1u << 31); // make the bit full
+				right_shift(maxbitoffset); // offset to lower it
 				mag_[0] |= 1; // make it odd
+				
 				unsigned long long r = mod(SMALL_PRIME_PRODUCT).to_uint64();
 				if ((r%3==0)  || (r%5==0)  || (r%7==0)  || (r%11==0) ||
 					(r%13==0) || (r%17==0) || (r%19==0) || (r%23==0) ||
@@ -713,7 +720,7 @@ namespace y
 
 
 		template <int num>
-		fixed_unsigned_int<num> y::math::fixed_unsigned_int<num>::mod_mult( const fixed_unsigned_int & b, 
+		fixed_unsigned_int<num> fixed_unsigned_int<num>::mod_mult( const fixed_unsigned_int & b, 
 			const fixed_unsigned_int & m ) const
 		{
 			if(m.is_zero())
@@ -761,7 +768,7 @@ namespace y
 
 
 		template <int num>
-		fixed_unsigned_int<num> y::math::fixed_unsigned_int<num>::mod_pow( const fixed_unsigned_int & exp, 
+		fixed_unsigned_int<num> fixed_unsigned_int<num>::mod_pow( const fixed_unsigned_int & exp, 
 			const fixed_unsigned_int & md ) const
 		{
 			if(exp.is_zero())
