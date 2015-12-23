@@ -45,7 +45,7 @@ cipher<len>::encode(const std::string &msg) {
     return encoded_sequence_t();
   encoded_sequence_t encoded(1 + msg.size() / (3 * len) +
                              1); // encode 3 chars into one int
-  encoded[0][0] = msg.size();
+  encoded[0][0] = unsigned(msg.size());
   int i = 0, j = 1, k = 0;
   for (char c : msg) {
     encoded[i][j] |= (unsigned(c) << (8 * k));
@@ -115,8 +115,8 @@ template <int len> void generate_keys(cipher<len> &pbk, decipher<len> &pvk) {
   typedef fixed_unsigned_int<len> num_t;
 
   std::default_random_engine rnd;
-  rnd.seed(
-      std::chrono::high_resolution_clock::now().time_since_epoch().count());
+  rnd.seed(unsigned(
+      std::chrono::high_resolution_clock::now().time_since_epoch().count()));
 
   half_num_t p, q;
   num_t n, phi, e, d;

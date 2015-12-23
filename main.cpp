@@ -19,7 +19,8 @@ int main(int argc, char **argv) {
 
   // setup random engine
   std::default_random_engine rnd;
-  rnd.seed(high_resolution_clock::now().time_since_epoch().count());
+  rnd.seed(static_cast<unsigned int>(
+      high_resolution_clock::now().time_since_epoch().count()));
 
   rsa::cipher<SIZE> cipher;
   rsa::decipher<SIZE> decpher;
