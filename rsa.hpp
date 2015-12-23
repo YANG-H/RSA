@@ -15,7 +15,7 @@ template <int len> class cipher {
   static_assert(sizeof(unsigned) == 4, "incorrect architecture!");
 
 public:
-  typedef std::vector<fixed_unsigned_int<len>> encoded_sequence_t;
+  typedef std::vector<fixed_uint<len>> encoded_sequence_t;
 
   static encoded_sequence_t encode(const std::string &msg);
 
@@ -25,7 +25,7 @@ public:
   }
 
 private:
-  fixed_unsigned_int<len> n, e;
+  fixed_uint<len> n, e;
   template <int l> friend void generate_keys(cipher<l> &pbk, decipher<l> &pvk);
 };
 
@@ -45,10 +45,10 @@ cipher<len>::encode(const std::string &msg) {
     return encoded_sequence_t();
   encoded_sequence_t encoded(1 + msg.size() / (3 * len) +
                              1); // encode 3 chars into one int
-  encoded[0][0] = unsigned(msg.size());
+  encoded[0][0] = uint32_t(msg.size());
   int i = 0, j = 1, k = 0;
   for (char c : msg) {
-    encoded[i][j] |= (unsigned(c) << (8 * k));
+    encoded[i][j] |= (uint32_t(c) << (8 * k));
     k++;
     if (k == 3) { // encode 3 chars into one int
       k = 0;
@@ -66,7 +66,7 @@ template <int len> class decipher {
   static_assert(sizeof(unsigned) == 4, "incorrect architecture!");
 
 public:
-  typedef std::vector<fixed_unsigned_int<len>> encoded_sequence_t;
+  typedef std::vector<fixed_uint<len>> encoded_sequence_t;
   static std::string decode(const encoded_sequence_t &encoded);
 
   encoded_sequence_t decrypt(const encoded_sequence_t &msg) const;
@@ -75,7 +75,7 @@ public:
   }
 
 private:
-  fixed_unsigned_int<len> n, e, d, phi, p, q;
+  fixed_uint<len> n, e, d, phi, p, q;
   template <int l> friend void generate_keys(cipher<l> &pbk, decipher<l> &pvk);
 };
 
@@ -111,11 +111,11 @@ std::string decipher<len>::decode(const encoded_sequence_t &encoded) {
 }
 
 template <int len> void generate_keys(cipher<len> &pbk, decipher<len> &pvk) {
-  typedef fixed_unsigned_int<len / 2> half_num_t;
-  typedef fixed_unsigned_int<len> num_t;
+  typedef fixed_uint<len / 2> half_num_t;
+  typedef fixed_uint<len> num_t;
 
   std::default_random_engine rnd;
-  rnd.seed(unsigned(
+  rnd.seed(uint32_t(
       std::chrono::high_resolution_clock::now().time_since_epoch().count()));
 
   half_num_t p, q;

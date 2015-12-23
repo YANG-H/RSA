@@ -13,20 +13,19 @@ namespace rsa {
 using std::operator<<;
 using std::operator>>;
 
-static const unsigned long long LONG_MASK = 0xffffffffL;
+static const uint64_t LONG_MASK = 0xffffffffL;
 static const int DEFAULT_PRIME_CERTAINTY = 100;
 
 namespace details {
 
 template <class _iter>
-struct is_unsigned_int_iterator
-    : std::is_same<typename std::iterator_traits<_iter>::value_type, unsigned> {
+struct is_uint32_iterator
+    : std::is_same<typename std::iterator_traits<_iter>::value_type, uint32_t> {
 };
 
 template <class _itera>
 _itera find_least_significant_nonzero(_itera abegin, _itera aend) {
-  static_assert(is_unsigned_int_iterator<_itera>::value,
-                "invalid iterator type");
+  static_assert(is_uint32_iterator<_itera>::value, "invalid iterator type");
   while (abegin != aend) {
     if (*abegin != 0)
       return abegin;
@@ -37,8 +36,7 @@ _itera find_least_significant_nonzero(_itera abegin, _itera aend) {
 
 template <class _itera>
 _itera find_most_significant_nonzero(_itera abegin, _itera aend) {
-  static_assert(is_unsigned_int_iterator<_itera>::value,
-                "invalid iterator type");
+  static_assert(is_uint32_iterator<_itera>::value, "invalid iterator type");
   std::reverse_iterator<_itera> arbegin(aend), arend(abegin);
   while (arbegin != arend) {
     if (*arbegin != 0)
@@ -50,10 +48,8 @@ _itera find_most_significant_nonzero(_itera abegin, _itera aend) {
 
 template <class _itera, class _iterb>
 int compare_range(_itera abegin, _itera aend, _iterb bbegin, _iterb bend) {
-  static_assert(is_unsigned_int_iterator<_itera>::value,
-                "invalid iterator type");
-  static_assert(is_unsigned_int_iterator<_iterb>::value,
-                "invalid iterator type");
+  static_assert(is_uint32_iterator<_itera>::value, "invalid iterator type");
+  static_assert(is_uint32_iterator<_iterb>::value, "invalid iterator type");
   int result = 0;
   auto i = abegin;
   auto j = bbegin;
@@ -78,28 +74,25 @@ int compare_range(_itera abegin, _itera aend, _iterb bbegin, _iterb bend) {
 
 // ~a
 template <class _itera> void twos_complement_range(_itera begin, _itera end) {
-  static_assert(is_unsigned_int_iterator<_itera>::value,
-                "invalid iterator type");
+  static_assert(is_uint32_iterator<_itera>::value, "invalid iterator type");
   for (auto i = begin; i != end; ++i)
     *i = ~(*i);
 }
 
 // -a
 template <class _itera> void negate_range(_itera begin, _itera end) {
-  static_assert(is_unsigned_int_iterator<_itera>::value,
-                "invalid iterator type");
+  static_assert(is_uint32_iterator<_itera>::value, "invalid iterator type");
   twos_complement_range(begin, end);
   plus_one_range(begin, end);
 }
 
 // ++a
 template <class _itera> void plus_one_range(_itera begin, _itera end) {
-  static_assert(is_unsigned_int_iterator<_itera>::value,
-                "invalid iterator type");
+  static_assert(is_uint32_iterator<_itera>::value, "invalid iterator type");
   bool carry = true;
   for (auto i = begin; i != end; ++i) {
-    unsigned long long sumhere = (LONG_MASK & *i) + (carry ? 1 : 0);
-    *i = unsigned(sumhere);
+    uint64_t sumhere = (LONG_MASK & *i) + (carry ? 1 : 0);
+    *i = uint32_t(sumhere);
     carry = (sumhere >> 32) != 0;
     if (!carry)
       break;
@@ -108,12 +101,11 @@ template <class _itera> void plus_one_range(_itera begin, _itera end) {
 
 // --a
 template <class _itera> void subtract_one_range(_itera begin, _itera end) {
-  static_assert(is_unsigned_int_iterator<_itera>::value,
-                "invalid iterator type");
+  static_assert(is_uint32_iterator<_itera>::value, "invalid iterator type");
   bool borrow = true;
   for (auto i = begin; i != end; ++i) {
-    long long subhere = (LONG_MASK & *i) - (borrow ? 1 : 0);
-    *i = unsigned(subhere);
+    int64_t subhere = (LONG_MASK & *i) - (borrow ? 1 : 0);
+    *i = uint32_t(subhere);
     borrow = subhere < 0;
     if (!borrow)
       break;
@@ -123,17 +115,14 @@ template <class _itera> void subtract_one_range(_itera begin, _itera end) {
 // a += b
 template <class _itera, class _iterb>
 void plus_range(_itera abegin, _itera aend, _iterb bbegin, _iterb bend) {
-  static_assert(is_unsigned_int_iterator<_itera>::value,
-                "invalid iterator type");
-  static_assert(is_unsigned_int_iterator<_iterb>::value,
-                "invalid iterator type");
+  static_assert(is_uint32_iterator<_itera>::value, "invalid iterator type");
+  static_assert(is_uint32_iterator<_iterb>::value, "invalid iterator type");
   bool carry = false;
   _itera ai;
   _iterb bi;
   for (ai = abegin, bi = bbegin; ai != aend && bi != bend; ++ai, ++bi) {
-    unsigned long long sumhere =
-        (LONG_MASK & *ai) + (LONG_MASK & *bi) + (carry ? 1 : 0);
-    *ai = unsigned(sumhere);
+    uint64_t sumhere = (LONG_MASK & *ai) + (LONG_MASK & *bi) + (carry ? 1 : 0);
+    *ai = uint32_t(sumhere);
     carry = (sumhere >> 32) != 0;
   }
   if (ai != aend && carry)
@@ -144,21 +133,19 @@ void plus_range(_itera abegin, _itera aend, _iterb bbegin, _iterb bend) {
 // a -= b
 template <class _itera, class _iterb>
 void subtract_range(_itera abegin, _itera aend, _iterb bbegin, _iterb bend) {
-  static_assert(is_unsigned_int_iterator<_itera>::value,
-                "invalid iterator type");
-  static_assert(is_unsigned_int_iterator<_iterb>::value,
-                "invalid iterator type");
+  static_assert(is_uint32_iterator<_itera>::value, "invalid iterator type");
+  static_assert(is_uint32_iterator<_iterb>::value, "invalid iterator type");
   bool borrow = false;
   _itera ai;
   _iterb bi;
   for (ai = abegin, bi = bbegin; ai != aend && bi != bend; ++ai, ++bi) {
-    unsigned long long along = LONG_MASK & *ai;
-    unsigned long long blong = LONG_MASK & *bi;
+    uint64_t along = LONG_MASK & *ai;
+    uint64_t blong = LONG_MASK & *bi;
     if (along >= blong + (borrow ? 1 : 0)) {
-      *ai = unsigned(along - blong - (borrow ? 1 : 0));
+      *ai = uint32_t(along - blong - (borrow ? 1 : 0));
       borrow = false;
     } else {
-      *ai = unsigned(along + (1UL << 32U) - blong - (borrow ? 1 : 0));
+      *ai = uint32_t(along + (1UL << 32U) - blong - (borrow ? 1 : 0));
       borrow = true;
     }
   }
@@ -176,80 +163,73 @@ void subtract_range(_itera abegin, _itera aend, _iterb bbegin, _iterb bend) {
 template <class _itera, class _iterb, class _iterab>
 void mult_range(_itera abegin, _itera aend, _iterb bbegin, _iterb bend,
                 _iterab abbegin, _iterab abend) {
-  static_assert(is_unsigned_int_iterator<_itera>::value,
-                "invalid iterator type");
-  static_assert(is_unsigned_int_iterator<_iterb>::value,
-                "invalid iterator type");
-  static_assert(is_unsigned_int_iterator<_iterab>::value,
-                "invalid iterator type");
+  static_assert(is_uint32_iterator<_itera>::value, "invalid iterator type");
+  static_assert(is_uint32_iterator<_iterb>::value, "invalid iterator type");
+  static_assert(is_uint32_iterator<_iterab>::value, "invalid iterator type");
   std::fill(abbegin, abend, 0u);
 
   // auto bend = bbegin + (aend - abegin);
   _iterab abihere = abbegin;
   for (auto bi = bbegin; bi != bend; ++bi, ++abihere) {
-    unsigned long long carry = 0;
+    uint64_t carry = 0;
     _itera ai = abegin;
     _iterab abi = abihere;
     for (; abi != abend && ai != aend; ++ai, ++abi) {
-      unsigned long long product =
+      uint64_t product =
           (*ai & LONG_MASK) * (*bi & LONG_MASK) + (*abi & LONG_MASK) + carry;
-      *abi = (unsigned)product;
+      *abi = (uint32_t)product;
       carry = product >> 32;
     }
     if (abi != abend)
-      *abi = unsigned(carry);
+      *abi = uint32_t(carry);
   }
 }
 
 // a <<= n
 template <class _itera>
-void left_shift_range(_itera abegin, _itera aend, unsigned n) {
-  static_assert(is_unsigned_int_iterator<_itera>::value,
-                "invalid iterator type");
+void left_shift_range(_itera abegin, _itera aend, uint32_t n) {
+  static_assert(is_uint32_iterator<_itera>::value, "invalid iterator type");
   assert(n < 32);
-  unsigned carry = 0;
+  uint32_t carry = 0;
   for (auto i = abegin; i != aend; ++i) {
-    unsigned long long s = ((*i & LONG_MASK) << n) + carry;
-    *i = unsigned(s);
+    uint64_t s = ((*i & LONG_MASK) << n) + carry;
+    *i = uint32_t(s);
     carry = (s >> 32);
   }
 }
 
 // a >>= n
 template <class _itera>
-void right_shift_range(_itera abegin, _itera aend, unsigned n) {
-  static_assert(is_unsigned_int_iterator<_itera>::value,
-                "invalid iterator type");
+void right_shift_range(_itera abegin, _itera aend, uint32_t n) {
+  static_assert(is_uint32_iterator<_itera>::value, "invalid iterator type");
   assert(n < 32);
   std::reverse_iterator<_itera> arbegin(aend), arend(abegin);
-  unsigned carry = 0;
+  uint32_t carry = 0;
   for (auto i = arbegin; i != arend; ++i) {
-    unsigned long long s = ((*i & LONG_MASK) + ((carry & LONG_MASK) << 32));
-    *i = unsigned(s >> n);
-    carry = unsigned(s - ((*i & LONG_MASK) << n));
+    uint64_t s = ((*i & LONG_MASK) + ((carry & LONG_MASK) << 32));
+    *i = uint32_t(s >> n);
+    carry = uint32_t(s - ((*i & LONG_MASK) << n));
   }
 }
 
 // a & (1 << n)
 template <class _itera>
-bool test_bit_range(_itera abegin, _itera aend, unsigned n) {
-  static_assert(is_unsigned_int_iterator<_itera>::value,
-                "invalid iterator type");
-  unsigned unitid = n / 32;
-  unsigned offset = n % 32;
+bool test_bit_range(_itera abegin, _itera aend, uint32_t n) {
+  static_assert(is_uint32_iterator<_itera>::value, "invalid iterator type");
+  uint32_t unitid = n / 32;
+  uint32_t offset = n % 32;
   return (*(abegin + unitid) & (1ull << offset)) != 0;
 }
 
 // number of bits
-inline int number_of_bits(unsigned i) {
+inline int number_of_bits(uint32_t i) {
   i = i - ((i >> 1) & 0x55555555);
   i = (i & 0x33333333) + ((i >> 2) & 0x33333333);
   return (((i + (i >> 4)) & 0x0F0F0F0F) * 0x01010101) >> 24;
 }
 
 template <class _itera> int number_of_bits_range(_itera abegin, _itera aend) {
-  static_assert(is_unsigned_int_iterator<_itera>::value,
-                "invalid iterator type");
+  static_assert(is_uint32_iterator<_itera>::value, "invalid iterator type");
   int n = 0;
   for (auto i = abegin; i != aend; ++i) {
     n += number_of_bits(*i);
@@ -262,11 +242,11 @@ template <class _iterDividend, class _iterDivisor, class _iterQuotient>
 void divide_and_remain_range(_iterDividend ddbegin, _iterDividend ddend,
                              _iterDivisor dsbegin, _iterDivisor dsend,
                              _iterQuotient qbegin, _iterQuotient qend) {
-  static_assert(is_unsigned_int_iterator<_iterDividend>::value,
+  static_assert(is_uint32_iterator<_iterDividend>::value,
                 "invalid iterator type");
-  static_assert(is_unsigned_int_iterator<_iterDivisor>::value,
+  static_assert(is_uint32_iterator<_iterDivisor>::value,
                 "invalid iterator type");
-  static_assert(is_unsigned_int_iterator<_iterQuotient>::value,
+  static_assert(is_uint32_iterator<_iterQuotient>::value,
                 "invalid iterator type");
 
   int cmp = compare_range(ddbegin, ddend, dsbegin, dsend);
@@ -284,7 +264,7 @@ void divide_and_remain_range(_iterDividend ddbegin, _iterDividend ddend,
     std::fill(qbegin, qend, 0u);
     return;
   }
-  unsigned long long dshead = *dsbig & LONG_MASK;
+  uint64_t dshead = *dsbig & LONG_MASK;
 
   typedef std::reverse_iterator<_iterDividend> _riterDividend;
 
@@ -296,7 +276,7 @@ void divide_and_remain_range(_iterDividend ddbegin, _iterDividend ddend,
   _riterDividend ddtoclear_rev(ddtoclear + 1);
   _riterDividend ddrevend(ddbegin);
 
-  std::vector<unsigned> dsmultgess(dsend - dsbegin + 1,
+  std::vector<uint32_t> dsmultgess(dsend - dsbegin + 1,
                                    0u); // cache for multiplication
   while (ddcurrenton_rev != ddrevend) {
     ddcurrenton = ddcurrenton_rev.base() - 1;
@@ -305,23 +285,23 @@ void divide_and_remain_range(_iterDividend ddbegin, _iterDividend ddend,
     int cmp = compare_range(ddcurrenton, ddend, dsbegin, dsend);
     if (cmp >= 0) {
       assert(ddtoclear - ddcurrenton == dsbig - dsbegin);
-      unsigned long long ddtoclearhead = *ddtoclear & LONG_MASK;
+      uint64_t ddtoclearhead = *ddtoclear & LONG_MASK;
       if (ddtoclear + 1 != ddend) {
         ddtoclearhead += ((*(ddtoclear + 1) & LONG_MASK) << 32);
       }
       assert(ddtoclearhead >= dshead);
-      unsigned long long qgess =
+      uint64_t qgess =
           (dshead + 1ul == 0) ? 1ul : ddtoclearhead / (dshead + 1ul);
-      qgess = std::max<unsigned long long>(1ul, qgess);
-      assert(qgess >= 1ul && unsigned(qgess >> 32) == 0);
+      qgess = std::max<uint64_t>(1ul, qgess);
+      assert(qgess >= 1ul && uint32_t(qgess >> 32) == 0);
       if (qgess > 1) {
-        unsigned qgess_[] = {unsigned(qgess)};
+        uint32_t qgess_[] = {uint32_t(qgess)};
         std::fill(dsmultgess.begin(), dsmultgess.end(), 0u);
         mult_range(dsbegin, dsend, qgess_, qgess_ + 1, dsmultgess.begin(),
                    dsmultgess.end());
         subtract_range(ddcurrenton, ddend, dsmultgess.begin(),
                        dsmultgess.end());
-        *(qbegin + (ddcurrenton - ddbegin)) += unsigned(qgess);
+        *(qbegin + (ddcurrenton - ddbegin)) += uint32_t(qgess);
       } else {
         subtract_range(ddcurrenton, ddend, dsbegin, dsbig + 1);
         *(qbegin + (ddcurrenton - ddbegin)) += 1;
@@ -334,7 +314,8 @@ void divide_and_remain_range(_iterDividend ddbegin, _iterDividend ddend,
 }
 }
 
-template <int num> class fixed_unsigned_int {
+// fixed_uint
+template <int num> class fixed_uint {
   static_assert(num > 1, "num should be over 2");
 
 public:
@@ -342,48 +323,46 @@ public:
   typedef uint64_t duint_t;
   static const int unit_num = num;
 
-  inline fixed_unsigned_int() { std::fill(mag_.begin(), mag_.end(), 0); }
-  fixed_unsigned_int(unsigned long long val) {
+  inline fixed_uint() { std::fill(mag_.begin(), mag_.end(), 0); }
+  fixed_uint(uint64_t val) {
     std::fill(mag_.begin(), mag_.end(), 0);
-    unsigned highword = (unsigned)(unsigned long long(val) >> 32);
+    uint32_t highword = (uint32_t)(uint64_t(val) >> 32);
     if (highword == 0) {
-      mag_[0] = unsigned(val);
+      mag_[0] = uint32_t(val);
     } else {
       mag_[1] = highword;
-      mag_[0] = unsigned(val);
+      mag_[0] = uint32_t(val);
     }
   }
-  explicit fixed_unsigned_int(const std::array<unsigned, unit_num> &val)
-      : mag_(val) {}
-  fixed_unsigned_int(const fixed_unsigned_int &v) : mag_(v.mag_) {}
-  template <int num2>
-  explicit fixed_unsigned_int(const fixed_unsigned_int<num2> &v) {
+  explicit fixed_uint(const std::array<uint32_t, unit_num> &val) : mag_(val) {}
+  fixed_uint(const fixed_uint &v) : mag_(v.mag_) {}
+  template <int num2> explicit fixed_uint(const fixed_uint<num2> &v) {
     std::fill(mag_.begin(), mag_.end(), 0);
     if (num2 <= num)
       std::copy(v.mag_.begin(), v.mag_.end(), mag_.begin());
     else
       std::copy(v.mag_.begin(), v.mag_.begin() + num, mag_.begin());
   }
-  template <class _it> explicit fixed_unsigned_int(_it begin, _it end) {
+  template <class _it> explicit fixed_uint(_it begin, _it end) {
     std::fill(mag_.begin(), mag_.end(), 0);
     std::copy(begin, end, mag_.begin());
   }
-  fixed_unsigned_int(const std::string &s, int radix = 10) {
+  fixed_uint(const std::string &s, int radix = 10) {
     std::fill(mag_.begin(), mag_.end(), 0);
     from_string(s, radix);
   }
 
-  inline const std::array<unsigned, unit_num> &magnitude() const {
+  inline const std::array<uint32_t, unit_num> &magnitude() const {
     return mag_;
   }
-  inline unsigned mag_at(int i) const { return mag_[i]; }
-  inline unsigned &mag_at(int i) { return mag_[i]; }
-  inline unsigned operator[](int i) const { return mag_[i]; }
-  inline unsigned &operator[](int i) { return mag_[i]; }
+  inline uint32_t mag_at(int i) const { return mag_[i]; }
+  inline uint32_t &mag_at(int i) { return mag_[i]; }
+  inline uint32_t operator[](int i) const { return mag_[i]; }
+  inline uint32_t &operator[](int i) { return mag_[i]; }
 
-  typedef unsigned value_type;
-  typedef typename std::array<unsigned, num>::iterator iterator;
-  typedef typename std::array<unsigned, num>::const_iterator const_iterator;
+  typedef uint32_t value_type;
+  typedef typename std::array<uint32_t, num>::iterator iterator;
+  typedef typename std::array<uint32_t, num>::const_iterator const_iterator;
 
   inline iterator begin() { return mag_.begin(); }
   inline iterator end() { return mag_.end(); }
@@ -392,8 +371,8 @@ public:
   inline const_iterator cbegin() const { return mag_.cbegin(); }
   inline const_iterator cend() const { return mag_.cend(); }
 
-  inline unsigned to_uint32() const { return mag_[0]; }
-  inline unsigned long long to_uint64() const {
+  inline uint32_t to_uint32() const { return mag_[0]; }
+  inline uint64_t to_uint64() const {
     return (mag_[0] & LONG_MASK) + ((mag_[1] & LONG_MASK) << 32);
   }
   std::string to_string(int radix = 10) const;
@@ -406,26 +385,26 @@ public:
 
 public:
   // comparison
-  int compare_to(const fixed_unsigned_int &v) const {
+  int compare_to(const fixed_uint &v) const {
     return details::compare_range(mag_.begin(), mag_.end(), v.mag_.begin(),
-                                      v.mag_.end());
+                                  v.mag_.end());
   }
-  inline bool operator==(const fixed_unsigned_int &v) const {
+  inline bool operator==(const fixed_uint &v) const {
     return compare_to(v) == 0;
   }
-  inline bool operator!=(const fixed_unsigned_int &v) const {
+  inline bool operator!=(const fixed_uint &v) const {
     return compare_to(v) != 0;
   }
-  inline bool operator<(const fixed_unsigned_int &v) const {
+  inline bool operator<(const fixed_uint &v) const {
     return compare_to(v) == -1;
   }
-  inline bool operator>(const fixed_unsigned_int &v) const {
+  inline bool operator>(const fixed_uint &v) const {
     return compare_to(v) == 1;
   }
-  inline bool operator<=(const fixed_unsigned_int &v) const {
+  inline bool operator<=(const fixed_uint &v) const {
     return compare_to(v) <= 0;
   }
-  inline bool operator>=(const fixed_unsigned_int &v) const {
+  inline bool operator>=(const fixed_uint &v) const {
     return compare_to(v) >= 0;
   }
 
@@ -443,19 +422,19 @@ public:
     return details::number_of_bits_range(mag_.begin(), mag_.end());
   }
 
-  void left_shift(unsigned n);
-  void right_shift(unsigned n);
-  inline bool test_bit(unsigned n) const {
+  void left_shift(uint32_t n);
+  void right_shift(uint32_t n);
+  inline bool test_bit(uint32_t n) const {
     return details::test_bit_range(mag_.begin(), mag_.end(), n);
   }
 
-  inline fixed_unsigned_int left_shifted(unsigned n) const {
-    fixed_unsigned_int s(*this);
+  inline fixed_uint left_shifted(uint32_t n) const {
+    fixed_uint s(*this);
     s.left_shift(n);
     return s;
   }
-  inline fixed_unsigned_int right_shifted(unsigned n) const {
-    fixed_unsigned_int s(*this);
+  inline fixed_uint right_shifted(uint32_t n) const {
+    fixed_uint s(*this);
     s.right_shift(n);
     return s;
   }
@@ -464,61 +443,51 @@ public:
     details::twos_complement_range(mag_.begin(), mag_.end());
   }
   void negate();
-  inline void plus_one() {
-    details::plus_one_range(mag_.begin(), mag_.end());
-  }
+  inline void plus_one() { details::plus_one_range(mag_.begin(), mag_.end()); }
   inline void subtract_one() {
     details::subtract_one_range(mag_.begin(), mag_.end());
   }
 
-  fixed_unsigned_int operator++(int) {
-    fixed_unsigned_int o(*this);
+  fixed_uint operator++(int) {
+    fixed_uint o(*this);
     plus_one();
     return o;
   }
-  fixed_unsigned_int &operator++() {
+  fixed_uint &operator++() {
     plus_one();
     return *this;
   }
-  fixed_unsigned_int operator--(int) {
-    fixed_unsigned_int o(*this);
+  fixed_uint operator--(int) {
+    fixed_uint o(*this);
     subtract_one();
     return o;
   }
-  fixed_unsigned_int &operator--() {
+  fixed_uint &operator--() {
     subtract_one();
     return *this;
   }
 
-  fixed_unsigned_int &operator+=(const fixed_unsigned_int &v);
-  fixed_unsigned_int &operator-=(const fixed_unsigned_int &v);
-  fixed_unsigned_int &operator*=(const fixed_unsigned_int &v);
-  fixed_unsigned_int &operator/=(const fixed_unsigned_int &v);
+  fixed_uint &operator+=(const fixed_uint &v);
+  fixed_uint &operator-=(const fixed_uint &v);
+  fixed_uint &operator*=(const fixed_uint &v);
+  fixed_uint &operator/=(const fixed_uint &v);
 
   // this = remainder, returns the quotient
-  fixed_unsigned_int divide_and_remain(const fixed_unsigned_int &ds);
-  fixed_unsigned_int mod(const fixed_unsigned_int &ds) const;
+  fixed_uint divide_and_remain(const fixed_uint &ds);
+  fixed_uint mod(const fixed_uint &ds) const;
 
-  fixed_unsigned_int mod_plus(const fixed_unsigned_int &b,
-                              const fixed_unsigned_int &m) const;
-  fixed_unsigned_int mod_negate(const fixed_unsigned_int &m) const {
-    return (m - mod(m));
-  }
-  fixed_unsigned_int mod_subtract(const fixed_unsigned_int &b,
-                                  const fixed_unsigned_int &m) const {
+  fixed_uint mod_plus(const fixed_uint &b, const fixed_uint &m) const;
+  fixed_uint mod_negate(const fixed_uint &m) const { return (m - mod(m)); }
+  fixed_uint mod_subtract(const fixed_uint &b, const fixed_uint &m) const {
     return mod_plus(b.mod_negate(m), m);
   }
-  fixed_unsigned_int mod_mult(const fixed_unsigned_int &b,
-                              const fixed_unsigned_int &m) const;
-  fixed_unsigned_int mod_inverse(const fixed_unsigned_int &b) const;
-  fixed_unsigned_int mod_pow(const fixed_unsigned_int &exp,
-                             const fixed_unsigned_int &m) const;
+  fixed_uint mod_mult(const fixed_uint &b, const fixed_uint &m) const;
+  fixed_uint mod_inverse(const fixed_uint &b) const;
+  fixed_uint mod_pow(const fixed_uint &exp, const fixed_uint &m) const;
 
-  fixed_unsigned_int gcd(const fixed_unsigned_int &b) const;
-  fixed_unsigned_int binary_gcd(const fixed_unsigned_int &b) const;
-  bool is_coprime_with(const fixed_unsigned_int &b) const {
-    return gcd(b).is_one();
-  }
+  fixed_uint gcd(const fixed_uint &b) const;
+  fixed_uint binary_gcd(const fixed_uint &b) const;
+  bool is_coprime_with(const fixed_uint &b) const { return gcd(b).is_one(); }
 
   template <class randgen_t>
   bool passes_miller_rabin_test(int iterations, randgen_t &rnd) const;
@@ -527,23 +496,23 @@ public:
   bool is_prime_with_certainty(randgen_t &rnd, int certainty) const;
 
 private:
-  std::array<unsigned, unit_num> mag_;
+  std::array<uint32_t, unit_num> mag_;
 
-  template <int num> friend class fixed_unsigned_int;
+  template <int num> friend class fixed_uint;
 };
 
 /************************************************************************/
-/* fixed_unsigned_int implementation                                    */
+/* fixed_uint implementation                                    */
 /************************************************************************/
 
 template <int num>
-std::string fixed_unsigned_int<num>::to_string(int radix /*= 10*/) const {
+std::string fixed_uint<num>::to_string(int radix /*= 10*/) const {
   if (radix <= 1)
     throw std::runtime_error("invalid radix");
   if (is_zero())
     return "0";
-  fixed_unsigned_int base = radix;
-  fixed_unsigned_int self(*this);
+  fixed_uint base = radix;
+  fixed_uint self(*this);
   std::string s;
   while (!self.is_zero()) {
     int b = self.mod(base).to_uint32();
@@ -554,15 +523,14 @@ std::string fixed_unsigned_int<num>::to_string(int radix /*= 10*/) const {
 }
 
 template <int num>
-void fixed_unsigned_int<num>::from_string(const std::string &s,
-                                          int radix /*= 10*/) {
+void fixed_uint<num>::from_string(const std::string &s, int radix /*= 10*/) {
   if (radix <= 1)
     throw std::runtime_error("invalid radix");
-  *this = fixed_unsigned_int();
-  fixed_unsigned_int base = radix;
+  *this = fixed_uint();
+  fixed_uint base = radix;
   for (int i = 0; i < s.size(); i++) {
     assert(isdigit(s[i]) || isalpha(s[i]));
-    fixed_unsigned_int b =
+    fixed_uint b =
         isdigit(s[i]) ? (s[i] - '0')
                       : (islower(s[i]) ? (s[i] - 'a' + 10) : (s[i] - 'A' + 10));
     *this = *this * base + b;
@@ -571,20 +539,19 @@ void fixed_unsigned_int<num>::from_string(const std::string &s,
 
 template <int num>
 template <class randgen_t>
-void fixed_unsigned_int<num>::randomize(randgen_t &rnd) {
+void fixed_uint<num>::randomize(randgen_t &rnd) {
   std::uniform_int_distribution<> dist;
   for (int i = 0; i < num; i++) {
     mag_[i] = dist(rnd);
   }
 }
 
-static const unsigned long long SMALL_PRIME_PRODUCT(3ull * 5 * 7 * 11 * 13 *
-                                                    17 * 19 * 23 * 29 * 31 *
-                                                    37 * 41);
+static const uint64_t SMALL_PRIME_PRODUCT(3ull * 5 * 7 * 11 * 13 * 17 * 19 *
+                                          23 * 29 * 31 * 37 * 41);
 
 template <int num>
 template <class randgen_t>
-void fixed_unsigned_int<num>::set_to_probable_prime(
+void fixed_uint<num>::set_to_probable_prime(
     randgen_t &rnd, int maxbitoffset,
     int certainty /*= DEFAULT_PRIME_CERTAINTY*/) {
   while (true) {
@@ -594,7 +561,7 @@ void fixed_unsigned_int<num>::set_to_probable_prime(
     right_shift(maxbitoffset); // offset to lower it
     mag_[0] |= 1;              // make it odd
 
-    unsigned long long r = mod(SMALL_PRIME_PRODUCT).to_uint64();
+    uint64_t r = mod(SMALL_PRIME_PRODUCT).to_uint64();
     if ((r % 3 == 0) || (r % 5 == 0) || (r % 7 == 0) || (r % 11 == 0) ||
         (r % 13 == 0) || (r % 17 == 0) || (r % 19 == 0) || (r % 23 == 0) ||
         (r % 29 == 0) || (r % 31 == 0) || (r % 37 == 0) || (r % 41 == 0))
@@ -604,14 +571,14 @@ void fixed_unsigned_int<num>::set_to_probable_prime(
   }
 }
 
-template <int num> bool fixed_unsigned_int<num>::is_zero() const {
+template <int num> bool fixed_uint<num>::is_zero() const {
   for (int i = 0; i < num; i++)
     if (mag_[i] != 0)
       return false;
   return true;
 }
 
-template <int num> bool fixed_unsigned_int<num>::is_one() const {
+template <int num> bool fixed_uint<num>::is_one() const {
   if (mag_[0] != 1)
     return false;
   for (int i = 1; i < num; i++)
@@ -620,18 +587,16 @@ template <int num> bool fixed_unsigned_int<num>::is_one() const {
   return true;
 }
 
-template <int num>
-int fixed_unsigned_int<num>::most_significant_nonzero_unit() const {
+template <int num> int fixed_uint<num>::most_significant_nonzero_unit() const {
   auto i = details::find_most_significant_nonzero(mag_.begin(), mag_.end());
   return i == mag_.end() ? -1 : (i - mag_.begin());
 }
 
-template <int num>
-int fixed_unsigned_int<num>::most_significant_nonzero_bit() const {
+template <int num> int fixed_uint<num>::most_significant_nonzero_bit() const {
   int msn = most_significant_nonzero_unit();
   if (msn == -1)
     return -1;
-  unsigned b = mag_[msn];
+  uint32_t b = mag_[msn];
   int a = -1;
   for (; b != 0; a++)
     b >>= 1;
@@ -639,19 +604,16 @@ int fixed_unsigned_int<num>::most_significant_nonzero_bit() const {
   return msn * 32 + a;
 }
 
-template <int num>
-int fixed_unsigned_int<num>::least_significant_nonzero_unit() const {
-  auto i =
-      details::find_least_significant_nonzero(mag_.begin(), mag_.end());
+template <int num> int fixed_uint<num>::least_significant_nonzero_unit() const {
+  auto i = details::find_least_significant_nonzero(mag_.begin(), mag_.end());
   return i == mag_.end() ? -1 : (i - mag_.begin());
 }
 
-template <int num>
-int fixed_unsigned_int<num>::least_significant_nonzero_bit() const {
+template <int num> int fixed_uint<num>::least_significant_nonzero_bit() const {
   int lsn = least_significant_nonzero_unit();
   if (lsn == -1)
     return -1;
-  unsigned b = mag_[lsn];
+  uint32_t b = mag_[lsn];
   int a = 32;
   for (; b != 0; a--)
     b <<= 1;
@@ -659,81 +621,72 @@ int fixed_unsigned_int<num>::least_significant_nonzero_bit() const {
   return lsn * 32 + a;
 }
 
-template <int num> void fixed_unsigned_int<num>::left_shift(unsigned n) {
+template <int num> void fixed_uint<num>::left_shift(uint32_t n) {
   while (n != 0) {
-    unsigned nn = std::min(32u, n);
+    uint32_t nn = std::min(32u, n);
     details::left_shift_range(mag_.begin(), mag_.end(), nn);
     n -= nn;
   }
 }
 
-template <int num> void fixed_unsigned_int<num>::right_shift(unsigned n) {
+template <int num> void fixed_uint<num>::right_shift(uint32_t n) {
   while (n != 0) {
-    unsigned nn = std::min(32u, n);
+    uint32_t nn = std::min(32u, n);
     details::right_shift_range(mag_.begin(), mag_.end(), nn);
     n -= nn;
   }
 }
 
-template <int num> void fixed_unsigned_int<num>::negate() {
+template <int num> void fixed_uint<num>::negate() {
   twos_complement();
   plus_one();
 }
 
 template <int num>
-fixed_unsigned_int<num> &fixed_unsigned_int<num>::
-operator+=(const fixed_unsigned_int &v) {
-  details::plus_range(mag_.begin(), mag_.end(), v.mag_.begin(),
+fixed_uint<num> &fixed_uint<num>::operator+=(const fixed_uint &v) {
+  details::plus_range(mag_.begin(), mag_.end(), v.mag_.begin(), v.mag_.end());
+  return *this;
+}
+
+template <int num>
+fixed_uint<num> &fixed_uint<num>::operator-=(const fixed_uint &v) {
+  details::subtract_range(mag_.begin(), mag_.end(), v.mag_.begin(),
                           v.mag_.end());
   return *this;
 }
 
 template <int num>
-fixed_unsigned_int<num> &fixed_unsigned_int<num>::
-operator-=(const fixed_unsigned_int &v) {
-  details::subtract_range(mag_.begin(), mag_.end(), v.mag_.begin(),
-                              v.mag_.end());
-  return *this;
-}
-
-template <int num>
-fixed_unsigned_int<num> &fixed_unsigned_int<num>::
-operator*=(const fixed_unsigned_int &v) {
+fixed_uint<num> &fixed_uint<num>::operator*=(const fixed_uint &v) {
   *this = (*this * v);
   return *this;
 }
 
 template <int num>
-fixed_unsigned_int<num> &fixed_unsigned_int<num>::
-operator/=(const fixed_unsigned_int &v) {
+fixed_uint<num> &fixed_uint<num>::operator/=(const fixed_uint &v) {
   *this = (*this / v);
   return *this;
 }
 
 template <int num>
-fixed_unsigned_int<num>
-fixed_unsigned_int<num>::divide_and_remain(const fixed_unsigned_int &ds) {
-  fixed_unsigned_int<num> q;
-  details::divide_and_remain_range(mag_.begin(), mag_.end(),
-                                       ds.mag_.begin(), ds.mag_.end(),
-                                       q.mag_.begin(), q.mag_.end());
+fixed_uint<num> fixed_uint<num>::divide_and_remain(const fixed_uint &ds) {
+  fixed_uint<num> q;
+  details::divide_and_remain_range(mag_.begin(), mag_.end(), ds.mag_.begin(),
+                                   ds.mag_.end(), q.mag_.begin(), q.mag_.end());
   return q;
 }
 
 template <int num>
-fixed_unsigned_int<num>
-fixed_unsigned_int<num>::mod(const fixed_unsigned_int &ds) const {
-  fixed_unsigned_int<num> n(*this), q;
+fixed_uint<num> fixed_uint<num>::mod(const fixed_uint &ds) const {
+  fixed_uint<num> n(*this), q;
   details::divide_and_remain_range(n.mag_.begin(), n.mag_.end(),
-                                       ds.mag_.begin(), ds.mag_.end(),
-                                       q.mag_.begin(), q.mag_.end());
+                                   ds.mag_.begin(), ds.mag_.end(),
+                                   q.mag_.begin(), q.mag_.end());
   return n;
 }
 
 template <int num>
-fixed_unsigned_int<num>
-fixed_unsigned_int<num>::mod_plus(const fixed_unsigned_int &b,
-                                  const fixed_unsigned_int &m) const {
+fixed_uint<num> fixed_uint<num>::mod_plus(const fixed_uint &b,
+                                          const fixed_uint &m) const {
   if (m.is_zero()) {
     throw std::runtime_error("m is zero!");
   }
@@ -743,20 +696,19 @@ fixed_unsigned_int<num>::mod_plus(const fixed_unsigned_int &b,
   if (b.is_zero())
     return mod(m);
 
-  fixed_unsigned_int<num + 1> self(*this);
-  fixed_unsigned_int<num + 1> temp;
+  fixed_uint<num + 1> self(*this);
+  fixed_uint<num + 1> temp;
   details::plus_range(self.mag_.begin(), self.mag_.end(), b.mag_.begin(),
-                          b.mag_.end());
+                      b.mag_.end());
   details::divide_and_remain_range(
       self.mag_.begin(), self.mag_.end(), m.mag_.begin(), m.mag_.end(),
       temp.mag_.begin(), temp.mag_.end()); // self %= m
-  return fixed_unsigned_int(self);
+  return fixed_uint(self);
 }
 
 template <int num>
-fixed_unsigned_int<num>
-fixed_unsigned_int<num>::mod_mult(const fixed_unsigned_int &b,
-                                  const fixed_unsigned_int &m) const {
+fixed_uint<num> fixed_uint<num>::mod_mult(const fixed_uint &b,
+                                          const fixed_uint &m) const {
   if (m.is_zero())
     throw std::runtime_error("m is zero!");
   if (m.is_one())
@@ -764,23 +716,22 @@ fixed_unsigned_int<num>::mod_mult(const fixed_unsigned_int &b,
   if (b.is_zero())
     return 0;
 
-  fixed_unsigned_int<num * 2> prod = mult_unlimit(*this, b), temp;
+  fixed_uint<num * 2> prod = mult_unlimit(*this, b), temp;
   details::divide_and_remain_range(
       prod.mag_.begin(), prod.mag_.end(), m.mag_.begin(), m.mag_.end(),
       temp.mag_.begin(), temp.mag_.end()); // prod %= m
-  assert(prod < fixed_unsigned_int<num * 2>(m));
-  return fixed_unsigned_int(prod);
+  assert(prod < fixed_uint<num * 2>(m));
+  return fixed_uint(prod);
 }
 
 template <int num>
-fixed_unsigned_int<num>
-fixed_unsigned_int<num>::mod_inverse(const fixed_unsigned_int &m) const {
+fixed_uint<num> fixed_uint<num>::mod_inverse(const fixed_uint &m) const {
   if (m.is_zero())
     throw std::runtime_error("modulus is zero!");
   if (m.is_one())
     return 0;
 
-  typedef fixed_unsigned_int<2 * num> fixed_unsigned_int2;
+  typedef fixed_uint<2 * num> fixed_unsigned_int2;
 
   fixed_unsigned_int2 mm(m);
   fixed_unsigned_int2 s = 0, old_s = 1;
@@ -801,13 +752,12 @@ fixed_unsigned_int<num>::mod_inverse(const fixed_unsigned_int &m) const {
     old_t = t;
     t = tmp.mod_subtract(q * t, mm);
   }
-  return fixed_unsigned_int(old_s).mod(m);
+  return fixed_uint(old_s).mod(m);
 }
 
 template <int num>
-fixed_unsigned_int<num>
-fixed_unsigned_int<num>::mod_pow(const fixed_unsigned_int &exp,
-                                 const fixed_unsigned_int &md) const {
+fixed_uint<num> fixed_uint<num>::mod_pow(const fixed_uint &exp,
+                                         const fixed_uint &md) const {
   if (exp.is_zero())
     return 1ull;
   if (exp.is_one())
@@ -817,9 +767,9 @@ fixed_unsigned_int<num>::mod_pow(const fixed_unsigned_int &exp,
 
   int msb = exp.most_significant_nonzero_bit();
   assert(msb >= 0);
-  fixed_unsigned_int<2 * num> prod(1ull);
-  fixed_unsigned_int<2 * num> self(mod(md));
-  fixed_unsigned_int<2 * num> mmd(md);
+  fixed_uint<2 * num> prod(1ull);
+  fixed_uint<2 * num> self(mod(md));
+  fixed_uint<2 * num> mmd(md);
   for (int i = msb; i >= 0; --i) {
     prod = prod * prod;
     prod = prod.mod(mmd);
@@ -829,13 +779,12 @@ fixed_unsigned_int<num>::mod_pow(const fixed_unsigned_int &exp,
     }
   }
 
-  return fixed_unsigned_int(prod);
+  return fixed_uint(prod);
 }
 
 template <int num>
-fixed_unsigned_int<num>
-fixed_unsigned_int<num>::gcd(const fixed_unsigned_int &b) const {
-  fixed_unsigned_int<num> aa(*this), bb(b);
+fixed_uint<num> fixed_uint<num>::gcd(const fixed_uint &b) const {
+  fixed_uint<num> aa(*this), bb(b);
   if (aa.is_zero())
     return bb;
   if (bb.is_zero())
@@ -852,9 +801,8 @@ fixed_unsigned_int<num>::gcd(const fixed_unsigned_int &b) const {
 }
 
 template <int num>
-fixed_unsigned_int<num>
-fixed_unsigned_int<num>::binary_gcd(const fixed_unsigned_int &b) const {
-  fixed_unsigned_int aa(*this), bb(b);
+fixed_uint<num> fixed_uint<num>::binary_gcd(const fixed_uint &b) const {
+  fixed_uint aa(*this), bb(b);
   int i = 0;
   if (aa.is_zero())
     return bb;
@@ -872,7 +820,7 @@ fixed_unsigned_int<num>::binary_gcd(const fixed_unsigned_int &b) const {
   bb.right_shift(bb.least_significant_nonzero_bit());
   int cmp;
   while ((cmp = aa.compare_to(bb)) != 0) {
-    fixed_unsigned_int temp = aa;
+    fixed_uint temp = aa;
     if (cmp < 0) { // aa < bb
       aa = bb - temp;
       bb = temp;
@@ -886,14 +834,14 @@ fixed_unsigned_int<num>::binary_gcd(const fixed_unsigned_int &b) const {
 
 template <int num>
 template <class randgen_t>
-bool fixed_unsigned_int<num>::passes_miller_rabin_test(int iterations,
-                                                       randgen_t &rnd) const {
+bool fixed_uint<num>::passes_miller_rabin_test(int iterations,
+                                               randgen_t &rnd) const {
   if (is_zero()) {
     return false;
   }
-  fixed_unsigned_int this_1 = *this;
+  fixed_uint this_1 = *this;
   --this_1;
-  fixed_unsigned_int m = this_1;
+  fixed_uint m = this_1;
   if (m.is_zero()) {
     return false;
   }
@@ -903,13 +851,13 @@ bool fixed_unsigned_int<num>::passes_miller_rabin_test(int iterations,
   m.right_shift(a);
 
   for (int i = 0; i < iterations; i++) {
-    fixed_unsigned_int b;
+    fixed_uint b;
     do {
       b.randomize(rnd);
     } while (b <= 1 || b >= *this);
 
     int j = 0;
-    fixed_unsigned_int z = b.mod_pow(m, *this);
+    fixed_uint z = b.mod_pow(m, *this);
     while (!((j == 0 && z.is_one()) || z == this_1)) {
       if (j > 0 && z.is_one() || ++j == a)
         return false;
@@ -921,8 +869,8 @@ bool fixed_unsigned_int<num>::passes_miller_rabin_test(int iterations,
 
 template <int num>
 template <class randgen_t>
-bool fixed_unsigned_int<num>::is_prime_with_certainty(randgen_t &rnd,
-                                                      int certainty) const {
+bool fixed_uint<num>::is_prime_with_certainty(randgen_t &rnd,
+                                              int certainty) const {
   int rounds = 0;
   int n = (std::min(certainty, std::numeric_limits<int>::max() - 1) + 1) / 2;
   int sizeInBits = most_significant_nonzero_bit() + 1;
@@ -948,71 +896,66 @@ bool fixed_unsigned_int<num>::is_prime_with_certainty(randgen_t &rnd,
 /* global functions implementation                                      */
 /************************************************************************/
 
-template <int num>
-fixed_unsigned_int<num> operator~(const fixed_unsigned_int<num> &v) {
-  fixed_unsigned_int<num> s(v);
+template <int num> fixed_uint<num> operator~(const fixed_uint<num> &v) {
+  fixed_uint<num> s(v);
   s.twos_complement();
   return s;
 }
 
-template <int num>
-fixed_unsigned_int<num> operator-(const fixed_unsigned_int<num> &v) {
-  fixed_unsigned_int<num> s(v);
+template <int num> fixed_uint<num> operator-(const fixed_uint<num> &v) {
+  fixed_uint<num> s(v);
   s.negate();
   return s;
 }
 
 template <int num>
-fixed_unsigned_int<num> operator+(const fixed_unsigned_int<num> &a,
-                                  const fixed_unsigned_int<num> &b) {
-  fixed_unsigned_int<num> s(a);
+fixed_uint<num> operator+(const fixed_uint<num> &a, const fixed_uint<num> &b) {
+  fixed_uint<num> s(a);
   s += b;
   return s;
 }
 
 template <int num>
-fixed_unsigned_int<num> operator-(const fixed_unsigned_int<num> &a,
-                                  const fixed_unsigned_int<num> &b) {
-  fixed_unsigned_int<num> s(a);
+fixed_uint<num> operator-(const fixed_uint<num> &a, const fixed_uint<num> &b) {
+  fixed_uint<num> s(a);
   s -= b;
   return s;
 }
 
 // unwrapped
 template <int num1, int num2>
-fixed_unsigned_int<num1 + num2>
-mult_unlimit(const fixed_unsigned_int<num1> &xx,
-             const fixed_unsigned_int<num2> &yy) {
-  std::array<unsigned, num1 + num2> p;
+fixed_uint<num1 + num2> mult_unlimit(const fixed_uint<num1> &xx,
+                                     const fixed_uint<num2> &yy) {
+  std::array<uint32_t, num1 + num2> p;
   std::fill(p.begin(), p.end(), 0);
   details::mult_range(xx.magnitude().begin(), xx.magnitude().end(),
-                          yy.magnitude().begin(), yy.magnitude().end(),
-                          p.begin(), p.end());
-  return fixed_unsigned_int<num1 + num2>(p);
+                      yy.magnitude().begin(), yy.magnitude().end(), p.begin(),
+                      p.end());
+  return fixed_uint<num1 + num2>(p);
 }
 
 // wrapped
 template <int num>
-fixed_unsigned_int<num> operator*(const fixed_unsigned_int<num> &xx,
-                                  const fixed_unsigned_int<num> &yy) {
-  std::array<unsigned, num> p;
+fixed_uint<num> operator*(const fixed_uint<num> &xx,
+                          const fixed_uint<num> &yy) {
+  std::array<uint32_t, num> p;
   std::fill(p.begin(), p.end(), 0);
   details::mult_range(xx.magnitude().begin(), xx.magnitude().end(),
-                          yy.magnitude().begin(), yy.magnitude().end(),
-                          p.begin(), p.end());
-  return fixed_unsigned_int<num>(p);
+                      yy.magnitude().begin(), yy.magnitude().end(), p.begin(),
+                      p.end());
+  return fixed_uint<num>(p);
 }
 
 template <int num>
-fixed_unsigned_int<num> operator/(const fixed_unsigned_int<num> &xx,
-                                  const fixed_unsigned_int<num> &yy) {
-  fixed_unsigned_int<num> xxx(xx);
+fixed_uint<num> operator/(const fixed_uint<num> &xx,
+                          const fixed_uint<num> &yy) {
+  fixed_uint<num> xxx(xx);
   return xxx.divide_and_remain(yy);
 }
 
 // streamer
 template <int num>
-std::ostream &operator<<(std::ostream &s, const fixed_unsigned_int<num> &v) {
+std::ostream &operator<<(std::ostream &s, const fixed_uint<num> &v) {
   if (s.flags() & s.hex) {
     s << "[hex " << v.to_string(16) << "]";
   } else if (s.flags() & s.dec) {
@@ -1024,7 +967,7 @@ std::ostream &operator<<(std::ostream &s, const fixed_unsigned_int<num> &v) {
 }
 
 template <int num>
-std::istream &operator>>(std::istream &s, fixed_unsigned_int<num> &v) {
+std::istream &operator>>(std::istream &s, fixed_uint<num> &v) {
   std::string txt;
   s >> txt;
   if (s.flags() & s.hex) {
